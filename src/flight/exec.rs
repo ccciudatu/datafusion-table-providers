@@ -166,7 +166,7 @@ impl FlightPartition {
 
 async fn flight_client(
     source: impl Into<String>,
-    grpc_headers: &Arc<MetadataMap>,
+    grpc_headers: &MetadataMap,
     size_limits: &SizeLimits,
 ) -> Result<FlightClient> {
     let channel = flight_channel(source).await?;
@@ -174,7 +174,7 @@ async fn flight_client(
         .max_encoding_message_size(size_limits.encoding)
         .max_decoding_message_size(size_limits.decoding);
     let mut client = FlightClient::new_from_inner(inner_client);
-    client.metadata_mut().clone_from(grpc_headers.as_ref());
+    client.metadata_mut().clone_from(grpc_headers);
     Ok(client)
 }
 
@@ -186,7 +186,7 @@ async fn flight_stream(
 ) -> Result<SendableRecordBatchStream> {
     let mut errors: Vec<Box<dyn Error + Send + Sync>> = vec![];
     for loc in partition.locations.iter() {
-        let client = flight_client(loc, &grpc_headers, &size_limits).await?;
+        let client = flight_client(loc, grpc_headers.as_ref(), &size_limits).await?;
         match try_fetch_stream(client, &partition.ticket, schema.clone()).await {
             Ok(stream) => return Ok(stream),
             Err(e) => errors.push(Box::new(e)),
